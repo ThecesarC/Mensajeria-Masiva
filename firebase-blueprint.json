@@ -1,0 +1,65 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isLinked": { "type": "boolean" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "SMS receiver details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "name", "phoneNumber"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Log of sent messages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "contactId": { "type": "string" },
+        "contactName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "content": { "type": "string" },
+        "status": { "type": "string", "enum": ["queued", "sending", "delivered", "read", "failed", "pending"] },
+        "channel": { "type": "string", "enum": ["sms", "whatsapp"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "intentUrl": { "type": "string" }
+      },
+      "required": ["id", "userId", "phoneNumber", "content", "status", "channel", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/users/{userId}/contacts/{contactId}": {
+      "schema": "Contact",
+      "description": "User-specific contacts list"
+    },
+    "/users/{userId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "History of messages sent by the user"
+    }
+  }
+}

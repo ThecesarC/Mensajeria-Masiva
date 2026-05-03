@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection test document
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Profile Rules
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && 
+        incoming().uid == userId &&
+        incoming().email is string &&
+        incoming().keys().hasAll(['uid', 'email', 'createdAt']) &&
+        incoming().keys().size() <= 6;
+      allow update: if isOwner(userId) &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'isLinked', 'createdAt']);
+    }
+
+    // Contacts Rules
+    match /users/{userId}/contacts/{contactId} {
+      function isValidContact(data) {
+        return data.id is string && data.id.size() <= 128 &&
+               data.userId == userId &&
+               data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+               data.phoneNumber is string && data.phoneNumber.size() >= 7 && data.phoneNumber.size() <= 20 &&
+               (data.createdAt == request.time || data.createdAt is timestamp);
+      }
+
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidContact(incoming());
+      allow update: if isOwner(userId) && isValidContact(incoming()) &&
+                    incoming().id == existing().id;
+      allow delete: if isOwner(userId);
+    }
+
+    // Messages Rules
+    match /users/{userId}/messages/{messageId} {
+      function isValidMessage(data) {
+        return data.id is string && data.id.size() <= 128 &&
+               data.userId == userId &&
+               data.phoneNumber is string &&
+               data.content is string && data.content.size() <= 2000 &&
+               data.status in ['queued', 'sending', 'delivered', 'read', 'failed', 'pending'] &&
+               data.channel in ['sms', 'whatsapp'];
+      }
+
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidMessage(incoming());
+      allow update: if isOwner(userId) && isValidMessage(incoming()) &&
+                    incoming().id == existing().id &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'intentUrl']);
+      allow delete: if isOwner(userId);
+    }
+  }
+}
